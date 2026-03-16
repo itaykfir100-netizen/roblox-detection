@@ -43,59 +43,44 @@ const buyersRef = ref(db, "buyers");
 const donationsRef = ref(db, "donations");
 const statsRef = ref(db, "stats/totalRaised");
 
-// 🔹 Update donations live
-onValue(donationsRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
-    const donationsArray = Object.values(data);
-    const liveDonations = donationsArray.sort((a,b)=>b.timestamp-a.timestamp).slice(0,5);
-    updateLiveDonations(liveDonations);
+// 🔹 Update live donations (last 50)
+onValue(donationsRef, snapshot => {
+    const data = snapshot.val() ? Object.entries(snapshot.val()).map(([k,v]) => ({...v,key:k})) : [];
+    const liveDonations = data.sort((a,b) => b.timestamp - a.timestamp).slice(0,5);
+    const liveDiv = document.getElementById("live-donations");
+    liveDiv.innerHTML = "<h2>LIVE DONATIONS</h2>";
+    liveDonations.forEach(d => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.textContent = `${d.username} - ${d.price} Robux`;
+        liveDiv.appendChild(card);
+    });
 });
 
-// 🔹 Update leaderboard live
-onValue(buyersRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
-    const leaderboardArray = Object.values(data).sort((a,b)=>b.totalSpent-a.totalSpent).slice(0,50);
-    updateLeaderboard(leaderboardArray);
+// 🔹 Update leaderboard (top 50 users by totalSpent)
+onValue(buyersRef, snapshot => {
+    const data = snapshot.val() ? Object.values(snapshot.val()) : [];
+    const leaderboard = data.sort((a,b) => b.totalSpent - a.totalSpent).slice(0,50);
+    const leaderboardDiv = document.getElementById("leaderboard");
+    leaderboardDiv.innerHTML = "<h2>LEADERBOARD</h2>";
+    leaderboard.forEach((u,i) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.textContent = `${i+1}. ${u.username} - ${u.totalSpent} Robux`;
+        leaderboardDiv.appendChild(card);
+    });
 });
 
 // 🔹 Update goal
 onValue(statsRef, snapshot => {
     const totalRaised = snapshot.val() || 0;
     const goal = 1000000;
-    updateGoal(totalRaised, goal);
-});
-
-function updateLiveDonations(donations) {
-    const liveDiv = document.getElementById("live-donations");
-    liveDiv.innerHTML = "<h2>LIVE DONATIONS</h2>";
-    donations.forEach(d => {
-        const card = document.createElement("div");
-        card.className = "card";
-        card.textContent = `${d.username} - ${d.price} Robux`;
-        liveDiv.appendChild(card);
-    });
-}
-
-function updateLeaderboard(users) {
-    const leaderboardDiv = document.getElementById("leaderboard");
-    leaderboardDiv.innerHTML = "<h2>LEADERBOARD</h2>";
-    users.forEach((u,i)=>{
-        const card = document.createElement("div");
-        card.className="card";
-        card.textContent = `${i+1}. ${u.username} - ${u.totalSpent} Robux`;
-        leaderboardDiv.appendChild(card);
-    });
-}
-
-function updateGoal(total, goal){
     const fill = document.getElementById("progress-fill");
     const text = document.getElementById("goal-text");
-    const percent = Math.min((total/goal)*100,100);
+    const percent = Math.min((totalRaised/goal)*100,100);
     fill.style.width = percent + "%";
-    text.textContent = `Total Raised: ${total} / ${goal} Robux`;
-}
+    text.textContent = `Total Raised: ${totalRaised} / ${goal} Robux`;
+});
 </script>
 </body>
 </html>
