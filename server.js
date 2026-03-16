@@ -18,9 +18,9 @@ const buyersRef = db.ref("buyers"); // כל הקונים נשמרים תחת "bu
 
 // POST endpoint לקבל נתונים מהמשחק
 app.post("/roblox", async (req, res) => {
-    const { username, userId, price } = req.body;
+    const { username, userId, price, timestamp } = req.body; // <-- הוסף timestamp
 
-    if (username && userId && price) {
+    if (username && userId && price && timestamp) {           // <-- בדוק גם timestamp
         try {
             const playerRef = buyersRef.child(userId);
             const snapshot = await playerRef.once("value");
@@ -28,13 +28,13 @@ app.post("/roblox", async (req, res) => {
             if (snapshot.exists()) {
                 // אם השחקן כבר קיים, מוסיפים למחיר הכולל
                 const total = snapshot.val().totalSpent + price;
-                await playerRef.update({ username, totalSpent: total });
+                await playerRef.update({ username, totalSpent: total, timestamp }); // <-- שמור timestamp
             } else {
                 // אם חדש, מוסיפים רשומה
-                await playerRef.set({ username, totalSpent: price });
+                await playerRef.set({ username, totalSpent: price, timestamp }); // <-- שמור timestamp
             }
 
-            console.log(`נשלח לשרת: ${username} | Price: ${price}`);
+            console.log(`נשלח לשרת: ${username} | Price: ${price} | Timestamp: ${timestamp}`);
             res.sendStatus(200);
         } catch (err) {
             console.error("Error saving to Firebase:", err);
