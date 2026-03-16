@@ -8,11 +8,26 @@
 </head>
 <body>
     <div class="container">
-        <div class="column" id="live-donations">
-            <h2>LIVE DONATIONS</h2>
+
+        <!-- Goal -->
+        <div id="goal-container">
+            <h2>GOAL</h2>
+            <div id="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+            <div id="goal-text"></div>
         </div>
-        <div class="column" id="leaderboard">
-            <h2>LEADERBOARD</h2>
+
+        <div class="columns">
+            <!-- Live Donations -->
+            <div class="column" id="live-donations">
+                <h2>LIVE DONATIONS</h2>
+            </div>
+
+            <!-- Leaderboard -->
+            <div class="column" id="leaderboard">
+                <h2>LEADERBOARD</h2>
+            </div>
         </div>
     </div>
 
@@ -28,34 +43,60 @@
         // 🔹 אתחול Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const buyersRef = ref(db, "buyers");
+        const donationsRef = ref(db, "donations");
+        const statsRef = ref(db, "stats/totalRaised");
 
-        // 🔹 מאזין בזמן אמת
-        onValue(buyersRef, (snapshot) => {
+        // 🔹 מאזין לכל התרומות
+        onValue(donationsRef, (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
 
-            const usersArray = Object.values(data);
-
-            // Leaderboard 50 הראשונים לפי totalSpent
-            const leaderboard = usersArray
-                .sort((a, b) => b.totalSpent - a.totalSpent)
-                .slice(0, 50);
+            const donationsArray = Object.values(data);
 
             // Live Donations 5 האחרונות לפי timestamp
-            const liveDonations = usersArray
+            const liveDonations = donationsArray
                 .sort((a, b) => b.timestamp - a.timestamp)
                 .slice(0, 5);
 
-            updateLeaderboard(leaderboard);
+            // Leaderboard 50 הראשונים לפי סכום כולל
+            const leaderboardMap = {};
+            donationsArray.forEach(d => {
+                if (!leaderboardMap[d.userId]) {
+                    leaderboardMap[d.userId] = { username: d.username, totalSpent: 0 };
+                }
+                leaderboardMap[d.userId].totalSpent += d.price;
+            });
+            const leaderboard = Object.values(leaderboardMap)
+                .sort((a, b) => b.totalSpent - a.totalSpent)
+                .slice(0, 50);
+
             updateLiveDonations(liveDonations);
+            updateLeaderboard(leaderboard);
         });
+
+        // 🔹 מאזין לסכום כולל
+        onValue(statsRef, (snapshot) => {
+            const totalRaised = snapshot.val() || 0;
+            const goal = 1000000;
+            updateGoal(totalRaised, goal);
+        });
+
+        // 🔹 עדכון Live Donations
+        function updateLiveDonations(donations) {
+            const liveDiv = document.getElementById("live-donations");
+            liveDiv.innerHTML = "<h2>LIVE DONATIONS</h2>";
+            donations.forEach(donation => {
+                const card = document.createElement("div");
+                card.className = "card";
+                card.innerHTML = `${donation.username} - ${donation.price} Robux`;
+                liveDiv.appendChild(card);
+            });
+        }
 
         // 🔹 עדכון Leaderboard
         function updateLeaderboard(users) {
             const leaderboardDiv = document.getElementById("leaderboard");
             leaderboardDiv.innerHTML = "<h2>LEADERBOARD</h2>";
-
             users.forEach((user, index) => {
                 const card = document.createElement("div");
                 card.className = "card";
@@ -64,17 +105,13 @@
             });
         }
 
-        // 🔹 עדכון Live Donations
-        function updateLiveDonations(donations) {
-            const liveDiv = document.getElementById("live-donations");
-            liveDiv.innerHTML = "<h2>LIVE DONATIONS</h2>";
-
-            donations.forEach(donation => {
-                const card = document.createElement("div");
-                card.className = "card";
-                card.innerHTML = `${donation.username} - ${donation.totalSpent} Robux`;
-                liveDiv.appendChild(card);
-            });
+        // 🔹 עדכון Goal
+        function updateGoal(total, goal) {
+            const fill = document.getElementById("progress-fill");
+            const text = document.getElementById("goal-text");
+            const percent = Math.min((total / goal) * 100, 100);
+            fill.style.width = percent + "%";
+            text.textContent = `סה"כ נתרמו: ${total} / ${goal} Robux`;
         }
     </script>
 </body>

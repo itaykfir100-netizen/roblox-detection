@@ -14,7 +14,8 @@ admin.initializeApp({
 });
 
 const db = admin.database();
-const buyersRef = db.ref("buyers");
+const donationsRef = db.ref("donations"); // כל תרומה נשמרת פה
+const statsRef = db.ref("stats/totalRaised"); // סכום כולל
 
 // מגיש קבצים סטטיים
 app.use(express.static(path.join(__dirname, "/")));
@@ -30,15 +31,12 @@ app.post("/roblox", async (req, res) => {
 
     if (username && userId && price && timestamp) {
         try {
-            const playerRef = buyersRef.child(userId);
-            const snapshot = await playerRef.once("value");
+            // שמירה של תרומה נפרדת
+            const donationRef = donationsRef.push();
+            await donationRef.set({ username, userId, price, timestamp });
 
-            if (snapshot.exists()) {
-                const total = snapshot.val().totalSpent + price;
-                await playerRef.update({ username, totalSpent: total, timestamp });
-            } else {
-                await playerRef.set({ username, totalSpent: price, timestamp });
-            }
+            // עדכון סכום כולל
+            await statsRef.transaction(current => (current || 0) + price);
 
             console.log(`נשלח לשרת: ${username} | Price: ${price} | Timestamp: ${timestamp}`);
             res.sendStatus(200);
@@ -48,6 +46,28 @@ app.post("/roblox", async (req, res) => {
         }
     } else {
         res.sendStatus(400);
+    }
+});
+
+// GET לכל התרומות
+app.get("/donations", async (req, res) => {
+    try {
+        const snapshot = await donationsRef.once("value");
+        res.json(snapshot.val());
+    } catch (err) {
+        console.error("Error fetching donations:", err);
+        res.sendStatus(500);
+    }
+});
+
+// GET לסכום כולל
+app.get("/goal", async (req, res) => {
+    try {
+        const snapshot = await statsRef.once("value");
+        res.json({ totalRaised: snapshot.val() || 0, goal: 1000000 });
+    } catch (err) {
+        console.error("Error fetching goal:", err);
+        res.sendStatus(500);
     }
 });
 
