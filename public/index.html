@@ -56,8 +56,9 @@ const buyersRef = ref(db,"buyers");
 const donationsRef = ref(db,"donations");
 const statsRef = ref(db,"stats/totalRaised");
 
-
 async function getAvatar(userId){
+
+try{
 
 const res = await fetch(
 `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=100x100&format=Png&isCircular=true`
@@ -65,21 +66,21 @@ const res = await fetch(
 
 const data = await res.json();
 
-return data.data[0].imageUrl;
+return data.data[0]?.imageUrl || "";
 
+}catch{
+return "";
 }
 
+}
 
 function spawnCoins(){
 
 for(let i=0;i<6;i++){
 
-const coin = document.createElement("div");
-
+const coin=document.createElement("div");
 coin.className="coin";
-
 coin.innerText="🪙";
-
 coin.style.left=Math.random()*100+"vw";
 
 document.body.appendChild(coin);
@@ -90,12 +91,11 @@ setTimeout(()=>coin.remove(),2000);
 
 }
 
-
 async function createCard(d){
 
 const avatar = await getAvatar(d.userId);
 
-const card = document.createElement("div");
+const card=document.createElement("div");
 
 card.className="card new";
 
@@ -111,10 +111,9 @@ return card;
 
 }
 
-
 let lastDonation=0;
 
-onValue(donationsRef,async(snapshot)=>{
+onValue(donationsRef, async (snapshot)=>{
 
 const data=snapshot.val();
 
@@ -137,7 +136,6 @@ live.appendChild(card);
 if(d.timestamp>lastDonation){
 
 spawnCoins();
-
 lastDonation=d.timestamp;
 
 }
@@ -146,15 +144,14 @@ lastDonation=d.timestamp;
 
 });
 
-
-onValue(buyersRef,async(snapshot)=>{
+onValue(buyersRef, async (snapshot)=>{
 
 const data=snapshot.val();
 
 if(!data) return;
 
-const users=Object.values(data)
-.sort((a,b)=>b.totalSpent-a.totalSpent)
+const users=Object.entries(data)
+.sort((a,b)=>b[1].totalSpent-a[1].totalSpent)
 .slice(0,50);
 
 const leaderboard=document.getElementById("leaderboard");
@@ -163,9 +160,10 @@ leaderboard.innerHTML="<h2>LEADERBOARD</h2>";
 
 for(let i=0;i<users.length;i++){
 
-const u=users[i];
+const userId=users[i][0];
+const u=users[i][1];
 
-const avatar=await getAvatar(u.userId);
+const avatar=await getAvatar(userId);
 
 const card=document.createElement("div");
 
@@ -183,10 +181,10 @@ leaderboard.appendChild(card);
 
 }
 
+const topUserId = users[0][0];
+const top = users[0][1];
 
-const top=users[0];
-
-const avatar=await getAvatar(top.userId);
+const avatar=await getAvatar(topUserId);
 
 document.getElementById("top-donor-card").innerHTML=`
 <img class="top-avatar" src="${avatar}">
@@ -196,11 +194,9 @@ document.getElementById("top-donor-card").innerHTML=`
 
 });
 
-
 onValue(statsRef,(snapshot)=>{
 
 const total=snapshot.val()||0;
-
 const goal=1000000;
 
 const percent=Math.min((total/goal)*100,100);
