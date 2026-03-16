@@ -88,37 +88,29 @@ h2{
 }
 
 /* Notifications */
-#donation-notifications{
-    position: fixed;
+#notifications{
+    position:fixed;
     top:20px;
     right:20px;
     display:flex;
     flex-direction:column;
     gap:10px;
-    z-index:1000;
+    z-index:9999;
 }
 
-.donation-notif{
+.notification{
     display:flex;
     align-items:center;
     gap:10px;
     background:#1f2937;
     padding:10px 15px;
     border-radius:12px;
-    transform: translateX(100%);
     opacity:0;
-    transition: transform 0.5s, opacity 0.5s;
+    transform:translateX(150%);
+    transition:0.5s;
 }
 
-.donation-notif.show{
-    transform: translateX(0);
+.notification.show{
     opacity:1;
-}
-
-.donation-notif .avatar{
-    width:50px;
-    height:50px;
-}
-.donation-notif .text{
-    font-weight:bold;
+    transform:translateX(0);
 }
