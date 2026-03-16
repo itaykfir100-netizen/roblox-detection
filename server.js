@@ -1,37 +1,43 @@
 const express = require("express");
+const path = require("path");
+const admin = require("firebase-admin");
+
 const app = express();
 app.use(express.json());
 
 // Firebase Admin
-const admin = require("firebase-admin");
-
-// קורא את Service Account מה‑Environment Variable של Render
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://roblox-detection-default-rtdb.firebaseio.com/" // Database URL שלך
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: "https://roblox-detection-default-rtdb.firebaseio.com/"
 });
 
 const db = admin.database();
-const buyersRef = db.ref("buyers"); // כל הקונים נשמרים תחת "buyers"
+const buyersRef = db.ref("buyers");
 
-// POST endpoint לקבל נתונים מהמשחק
+// מגיש קבצים סטטיים
+app.use(express.static(path.join(__dirname, "/")));
+
+// GET ל-/
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// POST מה-Roblox
 app.post("/roblox", async (req, res) => {
-    const { username, userId, price, timestamp } = req.body; // <-- הוסף timestamp
+    const { username, userId, price, timestamp } = req.body;
 
-    if (username && userId && price && timestamp) {           // <-- בדוק גם timestamp
+    if (username && userId && price && timestamp) {
         try {
             const playerRef = buyersRef.child(userId);
             const snapshot = await playerRef.once("value");
 
             if (snapshot.exists()) {
-                // אם השחקן כבר קיים, מוסיפים למחיר הכולל
                 const total = snapshot.val().totalSpent + price;
-                await playerRef.update({ username, totalSpent: total, timestamp }); // <-- שמור timestamp
+                await playerRef.update({ username, totalSpent: total, timestamp });
             } else {
-                // אם חדש, מוסיפים רשומה
-                await playerRef.set({ username, totalSpent: price, timestamp }); // <-- שמור timestamp
+                await playerRef.set({ username, totalSpent: price, timestamp });
             }
 
             console.log(`נשלח לשרת: ${username} | Price: ${price} | Timestamp: ${timestamp}`);
@@ -45,18 +51,7 @@ app.post("/roblox", async (req, res) => {
     }
 });
 
-// GET endpoint להציג את כל הקונים
-app.get("/buyers", async (req, res) => {
-    try {
-        const snapshot = await buyersRef.once("value");
-        res.json(snapshot.val());
-    } catch (err) {
-        console.error("Error fetching from Firebase:", err);
-        res.sendStatus(500);
-    }
-});
-
-// הגדרת פורט
+// מאזין פורט
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
