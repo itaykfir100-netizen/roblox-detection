@@ -1,205 +1,88 @@
 body{
-
-background: radial-gradient(circle at top,#1e293b,#020617);
-
-font-family: Segoe UI;
-
-color:white;
-
-margin:0;
-
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg,#0f172a,#1e293b);
+    color:white;
+    margin:0;
 }
 
 .container{
-
-max-width:1200px;
-
-margin:auto;
-
-padding:30px;
-
+    max-width:1200px;
+    margin:auto;
+    padding:30px;
 }
 
 .columns{
-
-display:flex;
-
-gap:30px;
-
-margin-top:30px;
-
+    display:flex;
+    gap:30px;
+    margin-top:30px;
 }
 
 .column{
-
-flex:1;
-
-background:#111827;
-
-border-radius:18px;
-
-padding:20px;
-
-box-shadow:0 10px 30px rgba(0,0,0,0.6);
-
-max-height:600px;
-
-overflow-y:auto;
-
+    flex:1;
+    background:#111827;
+    border-radius:18px;
+    padding:20px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.5);
 }
 
 h2{
-
-text-align:center;
-
-color:#38bdf8;
-
+    text-align:center;
+    color:#38bdf8;
 }
 
 .card{
-
-display:flex;
-
-align-items:center;
-
-gap:12px;
-
-background:#1e293b;
-
-padding:12px;
-
-border-radius:14px;
-
-margin:10px 0;
-
-box-shadow:0 5px 20px rgba(0,0,0,0.4);
-
-transition:0.2s;
-
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:#1f2937;
+    padding:10px;
+    border-radius:12px;
+    margin:10px 0;
+    transition:0.2s;
 }
 
 .card:hover{
-
-transform:scale(1.04);
-
+    transform:scale(1.03);
+    background:#273549;
 }
 
 .avatar{
-
-width:42px;
-
-height:42px;
-
-border-radius:50%;
-
+    width:40px;
+    height:40px;
+    border-radius:50%;
 }
 
 .username{
-
-font-weight:bold;
-
-font-size:15px;
-
+    font-weight:bold;
 }
 
 .price{
-
-color:#22c55e;
-
+    color:#22c55e;
 }
 
 #goal-container{
-
-margin-bottom:30px;
-
-background:#111827;
-
-padding:20px;
-
-border-radius:16px;
-
+    background:#111827;
+    padding:20px;
+    border-radius:18px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.5);
 }
 
 #progress-bar{
-
-width:100%;
-
-height:25px;
-
-background:#1f2937;
-
-border-radius:20px;
-
-overflow:hidden;
-
+    width:100%;
+    height:25px;
+    background:#1f2937;
+    border-radius:20px;
+    overflow:hidden;
 }
 
 #progress-fill{
-
-height:100%;
-
-width:0%;
-
-background:linear-gradient(90deg,#22c55e,#4ade80);
-
-transition:0.4s;
-
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,#22c55e,#4ade80);
+    transition:0.4s;
 }
 
 #goal-text{
-
-text-align:center;
-
-margin-top:8px;
-
-}
-
-#top-donor{
-
-text-align:center;
-
-margin-top:30px;
-
-margin-bottom:20px;
-
-}
-
-.top-avatar{
-
-width:90px;
-
-border-radius:50%;
-
-margin-top:10px;
-
-}
-
-.top-name{
-
-font-size:22px;
-
-font-weight:bold;
-
-}
-
-.top-amount{
-
-color:#22c55e;
-
-font-size:18px;
-
-}
-
-.new{
-
-animation:pop 0.4s ease;
-
-}
-
-@keyframes pop{
-
-0%{transform:scale(0.7);opacity:0}
-
-100%{transform:scale(1);opacity:1}
-
+    text-align:center;
+    margin-top:8px;
 }
