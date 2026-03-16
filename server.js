@@ -2,6 +2,10 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
+// Serve static files from "public"
+app.use(express.static("public"));
+
+// Firebase Admin
 const admin = require("firebase-admin");
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
@@ -15,6 +19,11 @@ const buyersRef = db.ref("buyers");
 const donationsRef = db.ref("donations");
 const statsRef = db.ref("stats/totalRaised");
 
+// Serve main page
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
+});
+
 // POST endpoint from Roblox
 app.post("/roblox", async (req, res) => {
     const { username, userId, price } = req.body;
@@ -23,7 +32,7 @@ app.post("/roblox", async (req, res) => {
     const timestamp = Date.now();
 
     try {
-        // 1️⃣ Update buyers
+        // Update buyers
         const buyerRef = buyersRef.child(userId);
         const snapshot = await buyerRef.once("value");
         if (snapshot.exists()) {
@@ -33,20 +42,19 @@ app.post("/roblox", async (req, res) => {
             await buyerRef.set({ username, totalSpent: price });
         }
 
-        // 2️⃣ Update donations (keep last 50)
+        // Update donations (keep last 50)
         const donationSnapshot = await donationsRef.once("value");
         const donations = donationSnapshot.val() ? Object.entries(donationSnapshot.val()) : [];
         const newDonationRef = donationsRef.push();
         await newDonationRef.set({ username, userId, price, timestamp });
 
-        // Remove oldest if more than 50
         if (donations.length >= 50) {
             const sorted = donations.sort((a, b) => a[1].timestamp - b[1].timestamp);
             const oldestKey = sorted[0][0];
             await donationsRef.child(oldestKey).remove();
         }
 
-        // 3️⃣ Update totalRaised
+        // Update totalRaised
         const totalSnapshot = await statsRef.once("value");
         const totalRaised = totalSnapshot.val() || 0;
         await statsRef.set(totalRaised + price);
