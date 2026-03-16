@@ -1,277 +1,133 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Roblox Donations</title>
-
 <link rel="stylesheet" href="style.css">
-
 </head>
-
 <body>
-
 <div class="container">
 
-<div id="goal-container">
+    <!-- Goal -->
+    <div id="goal-container">
+        <h2>GOAL</h2>
+        <div id="progress-bar">
+            <div id="progress-fill"></div>
+        </div>
+        <div id="goal-text"></div>
+    </div>
 
-<h2>GOAL</h2>
+    <div class="columns">
+        <!-- Live Donations -->
+        <div class="column" id="live-donations">
+            <h2>LIVE DONATIONS</h2>
+        </div>
 
-<div id="progress-bar">
-<div id="progress-fill"></div>
+        <!-- Leaderboard -->
+        <div class="column" id="leaderboard">
+            <h2>LEADERBOARD</h2>
+        </div>
+    </div>
 </div>
 
-<div id="goal-text"></div>
-
-</div>
-
-<div id="top-donor">
-
-<h2>TOP DONATOR</h2>
-
-<div id="top-donor-card"></div>
-
-</div>
-
-<div class="columns">
-
-<div class="column" id="live-donations">
-<h2>LIVE DONATIONS</h2>
-</div>
-
-<div class="column" id="leaderboard">
-<h2>LEADERBOARD</h2>
-</div>
-
-</div>
-
-</div>
-
-<div id="alerts"></div>
+<!-- Donation notifications -->
+<div id="donation-notifications"></div>
 
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-database.js";
 
-const firebaseConfig = {
-databaseURL:"https://roblox-detection-default-rtdb.firebaseio.com/"
-};
-
+const firebaseConfig = { databaseURL: "https://roblox-detection-default-rtdb.firebaseio.com/" };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 const buyersRef = ref(db,"buyers");
 const donationsRef = ref(db,"donations");
-const statsRef = ref(db,"stats/totalRaised");
+const statsRef = ref(db,"stats");
 
-
-async function getAvatar(userId){
-
-try{
-
-const res = await fetch(
-`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=100x100&format=Png&isCircular=true`
-);
-
-const data = await res.json();
-
-return data.data[0]?.imageUrl || "";
-
-}catch{
-
-return "";
-
+// Helper: Roblox avatar
+function getAvatar(userId){
+    return `https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=100&height=100&format=png`;
 }
 
-}
+// Live Donations
+let lastDonationTimestamps = {};
+onValue(donationsRef,(snapshot)=>{
+    const data = snapshot.val();
+    if(!data) return;
+    const donations = Object.values(data).sort((a,b)=>b.timestamp-a.timestamp).slice(0,5);
+    const liveDiv = document.getElementById("live-donations");
+    liveDiv.innerHTML="<h2>LIVE DONATIONS</h2>";
+    donations.forEach(d=>{
+        const card=document.createElement("div");
+        card.className="card";
+        card.innerHTML = `
+            <img class="avatar" src="${getAvatar(d.userId)}">
+            <div class="donation-info">
+                <div class="username">${d.username}</div>
+                <div class="price">${d.price} Robux</div>
+            </div>`;
+        liveDiv.appendChild(card);
 
-
-function spawnCoins(){
-
-for(let i=0;i<6;i++){
-
-const coin=document.createElement("div");
-
-coin.className="coin";
-
-coin.innerText="🪙";
-
-coin.style.left=Math.random()*100+"vw";
-
-document.body.appendChild(coin);
-
-setTimeout(()=>coin.remove(),2000);
-
-}
-
-}
-
-
-function showAlert(username,price,avatar){
-
-const alerts=document.getElementById("alerts");
-
-const alert=document.createElement("div");
-
-alert.className="alert";
-
-alert.innerHTML=`
-<img class="alert-avatar" src="${avatar}">
-<div class="alert-text">
-<b>${username}</b> donated <span style="color:#22c55e">${price} Robux</span>
-</div>
-`;
-
-alerts.appendChild(alert);
-
-setTimeout(()=>{
-
-alert.classList.add("hide");
-
-setTimeout(()=>{
-
-alert.remove();
-
-},400);
-
-},4000);
-
-}
-
-
-async function createCard(d){
-
-const avatar = await getAvatar(d.userId);
-
-const card=document.createElement("div");
-
-card.className="card new";
-
-card.innerHTML=`
-<img class="avatar" src="${avatar}">
-<div>
-<div class="username">${d.username}</div>
-<div class="price">${d.price} Robux</div>
-</div>
-`;
-
-return card;
-
-}
-
-
-let lastDonation=0;
-
-
-onValue(donationsRef, async (snapshot)=>{
-
-const data=snapshot.val();
-
-if(!data) return;
-
-const donations=Object.values(data)
-.sort((a,b)=>b.timestamp-a.timestamp)
-.slice(0,5);
-
-const live=document.getElementById("live-donations");
-
-live.innerHTML="<h2>LIVE DONATIONS</h2>";
-
-for(const d of donations){
-
-const card=await createCard(d);
-
-live.appendChild(card);
-
-if(d.timestamp>lastDonation){
-
-const avatar = await getAvatar(d.userId);
-
-spawnCoins();
-
-showAlert(d.username,d.price,avatar);
-
-lastDonation=d.timestamp;
-
-}
-
-}
-
+        // New donation notification
+        if(!lastDonationTimestamps[d.timestamp]){
+            createDonationNotification(d);
+            lastDonationTimestamps[d.timestamp]=true;
+        }
+    });
 });
 
-
-onValue(buyersRef, async (snapshot)=>{
-
-const data=snapshot.val();
-
-if(!data) return;
-
-const users=Object.entries(data)
-.sort((a,b)=>b[1].totalSpent-a[1].totalSpent)
-.slice(0,50);
-
-const leaderboard=document.getElementById("leaderboard");
-
-leaderboard.innerHTML="<h2>LEADERBOARD</h2>";
-
-for(let i=0;i<users.length;i++){
-
-const userId=users[i][0];
-const u=users[i][1];
-
-const avatar=await getAvatar(userId);
-
-const card=document.createElement("div");
-
-card.className="card";
-
-card.innerHTML=`
-<img class="avatar" src="${avatar}">
-<div>
-<div class="username">#${i+1} ${u.username}</div>
-<div class="price">${u.totalSpent} Robux</div>
-</div>
-`;
-
-leaderboard.appendChild(card);
-
-}
-
-
-const topUserId = users[0][0];
-const top = users[0][1];
-
-const avatar=await getAvatar(topUserId);
-
-document.getElementById("top-donor-card").innerHTML=`
-<img class="top-avatar" src="${avatar}">
-<div class="top-name">${top.username}</div>
-<div class="top-amount">${top.totalSpent} Robux</div>
-`;
-
+// Leaderboard
+onValue(buyersRef,(snapshot)=>{
+    const data=snapshot.val();
+    if(!data) return;
+    const users=Object.values(data).sort((a,b)=>b.totalSpent-a.totalSpent).slice(0,50);
+    const leaderboardDiv=document.getElementById("leaderboard");
+    leaderboardDiv.innerHTML="<h2>LEADERBOARD</h2>";
+    users.forEach((u,i)=>{
+        const card=document.createElement("div");
+        card.className="card";
+        card.innerHTML=`
+            <img class="avatar" src="${getAvatar(u.userId)}">
+            <div class="donation-info">
+                <div class="username">#${i+1} ${u.username}</div>
+                <div class="price">${u.totalSpent} Robux</div>
+            </div>`;
+        leaderboardDiv.appendChild(card);
+    });
 });
 
-
+// Goal
 onValue(statsRef,(snapshot)=>{
-
-const total=snapshot.val()||0;
-
-const goal=1000000;
-
-const percent=Math.min((total/goal)*100,100);
-
-document.getElementById("progress-fill").style.width=percent+"%";
-
-document.getElementById("goal-text").textContent=
-`Total Raised: ${total} / ${goal} Robux`;
-
+    const data=snapshot.val();
+    if(!data) return;
+    const total=data.totalRaised||0;
+    const goal=data.goal||1000000;
+    const percent=Math.min((total/goal)*100,100);
+    document.getElementById("progress-fill").style.width=percent+"%";
+    document.getElementById("goal-text").textContent=`Total Raised: ${total} / ${goal} Robux`;
 });
 
+// Donation notifications
+function createDonationNotification(d){
+    const container=document.getElementById("donation-notifications");
+    const notif=document.createElement("div");
+    notif.className="donation-notif";
+    notif.innerHTML=`
+        <img class="avatar" src="${getAvatar(d.userId)}">
+        <div class="text">
+            <strong>${d.username}</strong> donated <span class="price">${d.price} Robux</span>!
+        </div>`;
+    container.appendChild(notif);
+    // Animate in
+    setTimeout(()=>notif.classList.add("show"),50);
+    // Remove after 4s
+    setTimeout(()=>{
+        notif.classList.remove("show");
+        setTimeout(()=>container.removeChild(notif),500);
+    },4000);
+}
 </script>
-
 </body>
 </html>
