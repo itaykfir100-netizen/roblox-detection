@@ -4,15 +4,17 @@ app.use(express.json());
 
 // Firebase Admin
 const admin = require("firebase-admin");
-const serviceAccount = require("./serviceAccountKey.json"); // הקובץ שהורדת
+
+// קורא את Service Account מה‑Environment Variable של Render
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://roblox-detection-default-rtdb.firebaseio.com/" // שים פה את ה‑Database URL שלך
+  databaseURL: "https://roblox-detection-default-rtdb.firebaseio.com/" // Database URL שלך
 });
 
 const db = admin.database();
-const buyersRef = db.ref("buyers"); // כל הקונים יישמרו תחת "buyers"
+const buyersRef = db.ref("buyers"); // כל הקונים נשמרים תחת "buyers"
 
 // POST endpoint לקבל נתונים מהמשחק
 app.post("/roblox", async (req, res) => {
@@ -22,6 +24,7 @@ app.post("/roblox", async (req, res) => {
         try {
             const playerRef = buyersRef.child(userId);
             const snapshot = await playerRef.once("value");
+
             if (snapshot.exists()) {
                 // אם השחקן כבר קיים, מוסיפים למחיר הכולל
                 const total = snapshot.val().totalSpent + price;
@@ -53,6 +56,7 @@ app.get("/buyers", async (req, res) => {
     }
 });
 
+// הגדרת פורט
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
