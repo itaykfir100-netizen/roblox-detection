@@ -7,13 +7,26 @@ let buyers = [];
 
 // נקודת קצה שהמשחק שולח אליה שמות
 app.post("/roblox", (req, res) => {
-    const { username } = req.body;
-    if (username && !buyers.includes(username)) {
-        buyers.push(username);
+    const { username, userId, price } = req.body;
+
+    if (username && userId && price) {
+        let player = buyers.find(p => p.userId == userId);
+
+        if (player) {
+            // אם השחקן כבר קיים, מוסיפים את המחיר לסכום הכולל
+            player.totalSpent += price;
+        } else {
+            // אם חדש, מוסיפים לרשימה
+            buyers.push({
+                username: username,
+                userId: userId,
+                totalSpent: price
+            });
+        }
     }
+
     res.sendStatus(200);
 });
-
 // נקודת קצה שהאתר מושך ממנה את השמות
 app.get("/buyers", (req, res) => {
     res.json(buyers);
