@@ -2,10 +2,9 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
-// Serve static files from "public"
+// Serve static files
 app.use(express.static("public"));
 
-// Firebase Admin
 const admin = require("firebase-admin");
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
@@ -26,74 +25,76 @@ app.get("/", (req, res) => {
 
 // POST endpoint from Roblox
 app.post("/roblox", async (req, res) => {
-    const { username, userId, price } = req.body;
-    if (!username || !userId || !price) return res.sendStatus(400);
+  const { username, userId, price } = req.body;
+  if (!username || !userId || !price) return res.sendStatus(400);
 
-    const timestamp = Date.now();
+  const timestamp = Date.now();
 
-    try {
-        // 1️⃣ Update buyers with userId
-        const buyerRef = buyersRef.child(userId);
-        const snapshot = await buyerRef.once("value");
-        if (snapshot.exists()) {
-            const total = snapshot.val().totalSpent + price;
-            await buyerRef.update({ username, totalSpent: total, userId });
-        } else {
-            await buyerRef.set({ username, totalSpent: price, userId });
-        }
-
-        // 2️⃣ Update donations (keep last 50)
-        const donationSnapshot = await donationsRef.once("value");
-        const donations = donationSnapshot.val() ? Object.entries(donationSnapshot.val()) : [];
-        const newDonationRef = donationsRef.push();
-        await newDonationRef.set({ username, userId, price, timestamp });
-
-        if (donations.length >= 50) {
-            const sorted = donations.sort((a,b)=>a[1].timestamp - b[1].timestamp);
-            const oldestKey = sorted[0][0];
-            await donationsRef.child(oldestKey).remove();
-        }
-
-        // 3️⃣ Update totalRaised in stats
-        const totalSnapshot = await statsRef.child("totalRaised").once("value");
-        const totalRaised = totalSnapshot.val() || 0;
-        await statsRef.child("totalRaised").set(totalRaised + price);
-
-        console.log(`Donation received: ${username} - ${price} Robux`);
-        res.sendStatus(200);
-
-    } catch (err) {
-        console.error("Error saving donation:", err);
-        res.sendStatus(500);
+  try {
+    // Update buyers
+    const buyerRef = buyersRef.child(userId);
+    const snapshot = await buyerRef.once("value");
+    if (snapshot.exists()) {
+      const total = snapshot.val().totalSpent + price;
+      await buyerRef.update({ username, totalSpent: total, userId });
+    } else {
+      await buyerRef.set({ username, totalSpent: price, userId });
     }
+
+    // Update donations (keep last 50)
+    const donationSnapshot = await donationsRef.once("value");
+    const donations = donationSnapshot.val() ? Object.entries(donationSnapshot.val()) : [];
+    const newDonationRef = donationsRef.push();
+    await newDonationRef.set({ username, userId, price, timestamp });
+
+    if (donations.length >= 50) {
+      const sorted = donations.sort((a, b) => a[1].timestamp - b[1].timestamp);
+      const oldestKey = sorted[0][0];
+      await donationsRef.child(oldestKey).remove();
+    }
+
+    // Update totalRaised if exists
+    const totalSnapshot = await statsRef.once("value");
+    const totalData = totalSnapshot.val() || {};
+    const totalRaised = totalData.totalRaised || 0;
+    const goal = totalData.goal || 1000000;
+    await statsRef.update({ totalRaised: totalRaised + price, goal });
+
+    console.log(`Donation received: ${username} - ${price} Robux`);
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error("Error saving donation:", err);
+    res.sendStatus(500);
+  }
 });
 
 // GET endpoints
 app.get("/buyers", async (req, res) => {
-    try {
-        const snapshot = await buyersRef.once("value");
-        res.json(snapshot.val());
-    } catch (err) {
-        res.sendStatus(500);
-    }
+  try {
+    const snapshot = await buyersRef.once("value");
+    res.json(snapshot.val());
+  } catch (err) {
+    res.sendStatus(500);
+  }
 });
 
 app.get("/donations", async (req, res) => {
-    try {
-        const snapshot = await donationsRef.once("value");
-        res.json(snapshot.val());
-    } catch (err) {
-        res.sendStatus(500);
-    }
+  try {
+    const snapshot = await donationsRef.once("value");
+    res.json(snapshot.val());
+  } catch (err) {
+    res.sendStatus(500);
+  }
 });
 
 app.get("/stats", async (req, res) => {
-    try {
-        const snapshot = await statsRef.child("totalRaised").once("value");
-        res.json({ totalRaised: snapshot.val() || 0 });
-    } catch (err) {
-        res.sendStatus(500);
-    }
+  try {
+    const snapshot = await statsRef.once("value");
+    res.json(snapshot.val() || { totalRaised: 0, goal: 1000000 });
+  } catch (err) {
+    res.sendStatus(500);
+  }
 });
 
 // Start server
