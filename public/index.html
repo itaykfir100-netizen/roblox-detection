@@ -2,28 +2,38 @@
 
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Roblox Donations</title>
 
 <link rel="stylesheet" href="style.css">
 
 </head>
+
 <body>
 
 <div class="container">
 
 <div id="goal-container">
+
 <h2>GOAL</h2>
+
 <div id="progress-bar">
 <div id="progress-fill"></div>
 </div>
+
 <div id="goal-text"></div>
+
 </div>
 
 <div id="top-donor">
+
 <h2>TOP DONATOR</h2>
+
 <div id="top-donor-card"></div>
+
 </div>
 
 <div class="columns">
@@ -39,6 +49,8 @@
 </div>
 
 </div>
+
+<div id="alerts"></div>
 
 <script type="module">
 
@@ -56,6 +68,7 @@ const buyersRef = ref(db,"buyers");
 const donationsRef = ref(db,"donations");
 const statsRef = ref(db,"stats/totalRaised");
 
+
 async function getAvatar(userId){
 
 try{
@@ -69,18 +82,24 @@ const data = await res.json();
 return data.data[0]?.imageUrl || "";
 
 }catch{
+
 return "";
+
 }
 
 }
+
 
 function spawnCoins(){
 
 for(let i=0;i<6;i++){
 
 const coin=document.createElement("div");
+
 coin.className="coin";
+
 coin.innerText="🪙";
+
 coin.style.left=Math.random()*100+"vw";
 
 document.body.appendChild(coin);
@@ -90,6 +109,39 @@ setTimeout(()=>coin.remove(),2000);
 }
 
 }
+
+
+function showAlert(username,price,avatar){
+
+const alerts=document.getElementById("alerts");
+
+const alert=document.createElement("div");
+
+alert.className="alert";
+
+alert.innerHTML=`
+<img class="alert-avatar" src="${avatar}">
+<div class="alert-text">
+<b>${username}</b> donated <span style="color:#22c55e">${price} Robux</span>
+</div>
+`;
+
+alerts.appendChild(alert);
+
+setTimeout(()=>{
+
+alert.classList.add("hide");
+
+setTimeout(()=>{
+
+alert.remove();
+
+},400);
+
+},4000);
+
+}
+
 
 async function createCard(d){
 
@@ -111,7 +163,9 @@ return card;
 
 }
 
+
 let lastDonation=0;
+
 
 onValue(donationsRef, async (snapshot)=>{
 
@@ -135,7 +189,12 @@ live.appendChild(card);
 
 if(d.timestamp>lastDonation){
 
+const avatar = await getAvatar(d.userId);
+
 spawnCoins();
+
+showAlert(d.username,d.price,avatar);
+
 lastDonation=d.timestamp;
 
 }
@@ -143,6 +202,7 @@ lastDonation=d.timestamp;
 }
 
 });
+
 
 onValue(buyersRef, async (snapshot)=>{
 
@@ -181,6 +241,7 @@ leaderboard.appendChild(card);
 
 }
 
+
 const topUserId = users[0][0];
 const top = users[0][1];
 
@@ -194,9 +255,11 @@ document.getElementById("top-donor-card").innerHTML=`
 
 });
 
+
 onValue(statsRef,(snapshot)=>{
 
 const total=snapshot.val()||0;
+
 const goal=1000000;
 
 const percent=Math.min((total/goal)*100,100);
