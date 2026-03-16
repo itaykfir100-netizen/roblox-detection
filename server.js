@@ -2,41 +2,57 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
-// רשימת השחקנים והסכומים
-let buyers = [];
+// Firebase Admin
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json"); // הקובץ שהורדת
 
-// נקודת קצה לקבל POST מהמשחק
-app.post("/roblox", (req, res) => {
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://roblox-detection-default-rtdb.firebaseio.com/" // שים פה את ה‑Database URL שלך
+});
+
+const db = admin.database();
+const buyersRef = db.ref("buyers"); // כל הקונים יישמרו תחת "buyers"
+
+// POST endpoint לקבל נתונים מהמשחק
+app.post("/roblox", async (req, res) => {
     const { username, userId, price } = req.body;
 
     if (username && userId && price) {
-        // בדיקה אם השחקן כבר קיים
-        let player = buyers.find(p => p.userId === userId);
+        try {
+            const playerRef = buyersRef.child(userId);
+            const snapshot = await playerRef.once("value");
+            if (snapshot.exists()) {
+                // אם השחקן כבר קיים, מוסיפים למחיר הכולל
+                const total = snapshot.val().totalSpent + price;
+                await playerRef.update({ username, totalSpent: total });
+            } else {
+                // אם חדש, מוסיפים רשומה
+                await playerRef.set({ username, totalSpent: price });
+            }
 
-        if (player) {
-            player.totalSpent += price; // מוסיפים לסכום הכולל
-        } else {
-            buyers.push({
-                username: username,
-                userId: userId,
-                totalSpent: price
-            });
+            console.log(`נשלח לשרת: ${username} | Price: ${price}`);
+            res.sendStatus(200);
+        } catch (err) {
+            console.error("Error saving to Firebase:", err);
+            res.sendStatus(500);
         }
-
-        console.log(`נשלח לשרת: ${username} | Price: ${price}`);
     } else {
-        console.warn("נתונים לא נכונים מהמשחק:", req.body);
+        res.sendStatus(400);
     }
-
-    res.sendStatus(200);
 });
 
-// נקודת קצה להציג את כל הקונים
-app.get("/buyers", (req, res) => {
-    res.json(buyers);
+// GET endpoint להציג את כל הקונים
+app.get("/buyers", async (req, res) => {
+    try {
+        const snapshot = await buyersRef.once("value");
+        res.json(snapshot.val());
+    } catch (err) {
+        console.error("Error fetching from Firebase:", err);
+        res.sendStatus(500);
+    }
 });
 
-// הגדרת פורט
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
