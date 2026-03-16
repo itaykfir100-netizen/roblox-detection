@@ -2,32 +2,36 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
-// רשימה של מי שקנה Gamepass
+// רשימת השחקנים והסכומים
 let buyers = [];
 
-// נקודת קצה שהמשחק שולח אליה שמות
+// נקודת קצה לקבל POST מהמשחק
 app.post("/roblox", (req, res) => {
     const { username, userId, price } = req.body;
 
     if (username && userId && price) {
-        let player = buyers.find(p => p.userId == userId);
+        // בדיקה אם השחקן כבר קיים
+        let player = buyers.find(p => p.userId === userId);
 
         if (player) {
-            // אם השחקן כבר קיים, מוסיפים את המחיר לסכום הכולל
-            player.totalSpent += price;
+            player.totalSpent += price; // מוסיפים לסכום הכולל
         } else {
-            // אם חדש, מוסיפים לרשימה
             buyers.push({
                 username: username,
                 userId: userId,
                 totalSpent: price
             });
         }
+
+        console.log(`נשלח לשרת: ${username} | Price: ${price}`);
+    } else {
+        console.warn("נתונים לא נכונים מהמשחק:", req.body);
     }
 
     res.sendStatus(200);
 });
-// נקודת קצה שהאתר מושך ממנה את השמות
+
+// נקודת קצה להציג את כל הקונים
 app.get("/buyers", (req, res) => {
     res.json(buyers);
 });
