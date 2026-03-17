@@ -4,34 +4,75 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Roblox Donations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow top-left"></div>
+<div class="bg-glow bottom-right"></div>
+
 <div class="container">
 
-    <!-- Goal -->
-    <div id="goal-container">
-        <h2>GOAL</h2>
-        <div id="progress-bar">
-            <div id="progress-fill"></div>
-        </div>
-        <div id="goal-text"></div>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="header-logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">DONATION<span class="logo-accent">HUB</span></span>
+    </div>
+    <div class="header-stats">
+      <div class="header-stat">
+        <span class="stat-label">TOTAL RAISED</span>
+        <span class="stat-value" id="total-raised-header">—</span>
+      </div>
+      <div class="header-stat">
+        <span class="stat-label">DONORS</span>
+        <span class="stat-value" id="donors-count">—</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Goal Bar -->
+  <div class="goal-card">
+    <div class="goal-header">
+      <span class="goal-label">◎ CAMPAIGN GOAL</span>
+      <span class="goal-numbers" id="goal-text">Loading...</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill">
+        <div class="progress-shimmer"></div>
+      </div>
+      <span class="progress-percent" id="progress-pct">0%</span>
+    </div>
+  </div>
+
+  <!-- Main Columns -->
+  <div class="columns">
+
+    <!-- Live Donations -->
+    <div class="panel" id="live-donations">
+      <div class="panel-header">
+        <span class="panel-icon live-dot"></span>
+        <h2>LIVE DONATIONS</h2>
+      </div>
+      <div class="panel-body" id="live-list"></div>
     </div>
 
-    <div class="columns">
-        <!-- Live Donations -->
-        <div class="column" id="live-donations">
-            <h2>LIVE DONATIONS</h2>
-        </div>
-
-        <!-- Leaderboard -->
-        <div class="column" id="leaderboard">
-            <h2>LEADERBOARD</h2>
-        </div>
+    <!-- Leaderboard -->
+    <div class="panel" id="leaderboard-panel">
+      <div class="panel-header">
+        <span class="panel-icon trophy-icon">🏆</span>
+        <h2>LEADERBOARD</h2>
+      </div>
+      <div class="panel-body" id="leaderboard-list"></div>
     </div>
+
+  </div>
 </div>
 
-<!-- Donation notifications -->
+<!-- Donation Alerts -->
 <div id="donation-notifications"></div>
 
 <script type="module">
@@ -42,91 +83,154 @@ const firebaseConfig = { databaseURL: "https://roblox-detection-default-rtdb.fir
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const buyersRef = ref(db,"buyers");
-const donationsRef = ref(db,"donations");
-const statsRef = ref(db,"stats");
+const buyersRef    = ref(db, "buyers");
+const donationsRef = ref(db, "donations");
+const statsRef     = ref(db, "stats");
 
-// Helper: Roblox avatar
-function getAvatar(userId){
+// ── Avatar proxy (fix for Roblox hotlink blocking) ──────────────────────────
+const avatarCache = {};
+async function getAvatar(userId) {
+  if (avatarCache[userId]) return avatarCache[userId];
+  try {
+    const res  = await fetch(`/api/avatar/${userId}`);
+    const data = await res.json();
+    avatarCache[userId] = data.url;
+    return data.url;
+  } catch {
     return `https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=100&height=100&format=png`;
+  }
 }
 
-// Live Donations
-let lastDonationTimestamps = {};
-onValue(donationsRef,(snapshot)=>{
-    const data = snapshot.val();
-    if(!data) return;
-    const donations = Object.values(data).sort((a,b)=>b.timestamp-a.timestamp).slice(0,5);
-    const liveDiv = document.getElementById("live-donations");
-    liveDiv.innerHTML="<h2>LIVE DONATIONS</h2>";
-    donations.forEach(d=>{
-        const card=document.createElement("div");
-        card.className="card";
-        card.innerHTML = `
-            <img class="avatar" src="${getAvatar(d.userId)}">
-            <div class="donation-info">
-                <div class="username">${d.username}</div>
-                <div class="price">${d.price} Robux</div>
-            </div>`;
-        liveDiv.appendChild(card);
+// ── Helper: create avatar img element ────────────────────────────────────────
+async function buildCard(userId, username, sub, rank = null) {
+  const card = document.createElement("div");
+  card.className = "card" + (rank === 1 ? " card-gold" : rank === 2 ? " card-silver" : rank === 3 ? " card-bronze" : "");
 
-        // New donation notification
-        if(!lastDonationTimestamps[d.timestamp]){
-            createDonationNotification(d);
-            lastDonationTimestamps[d.timestamp]=true;
-        }
-    });
+  const rankBadge = rank ? `<div class="rank-badge rank-${rank <= 3 ? rank : 'n'}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : '#'+rank}</div>` : '';
+
+  card.innerHTML = `
+    ${rankBadge}
+    <div class="avatar-wrap">
+      <img class="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+      <div class="avatar-ring"></div>
+    </div>
+    <div class="card-info">
+      <div class="card-username">${username}</div>
+      <div class="card-sub">${sub}</div>
+    </div>`;
+
+  // load avatar async after appending
+  getAvatar(userId).then(url => {
+    const img = card.querySelector(".avatar");
+    if (img) img.src = url;
+  });
+
+  return card;
+}
+
+// ── Live Donations ───────────────────────────────────────────────────────────
+let seenTimestamps = null; // null = first load not done yet
+
+onValue(donationsRef, async (snapshot) => {
+  const data = snapshot.val();
+  if (!data) return;
+
+  const donations = Object.values(data)
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 5);
+
+  // On first load: record existing timestamps silently (no notifications)
+  if (seenTimestamps === null) {
+    seenTimestamps = new Set(donations.map(d => d.timestamp));
+  }
+
+  const liveList = document.getElementById("live-list");
+  liveList.innerHTML = "";
+
+  for (const d of donations) {
+    const timeAgo = formatTime(d.timestamp);
+    const card = await buildCard(d.userId, d.username, `${d.price.toLocaleString()} R$ · ${timeAgo}`);
+    liveList.appendChild(card);
+
+    // Only alert for genuinely new donations
+    if (!seenTimestamps.has(d.timestamp)) {
+      seenTimestamps.add(d.timestamp);
+      createDonationAlert(d);
+    }
+  }
 });
 
-// Leaderboard
-onValue(buyersRef,(snapshot)=>{
-    const data=snapshot.val();
-    if(!data) return;
-    const users=Object.values(data).sort((a,b)=>b.totalSpent-a.totalSpent).slice(0,50);
-    const leaderboardDiv=document.getElementById("leaderboard");
-    leaderboardDiv.innerHTML="<h2>LEADERBOARD</h2>";
-    users.forEach((u,i)=>{
-        const card=document.createElement("div");
-        card.className="card";
-        card.innerHTML=`
-            <img class="avatar" src="${getAvatar(u.userId)}">
-            <div class="donation-info">
-                <div class="username">#${i+1} ${u.username}</div>
-                <div class="price">${u.totalSpent} Robux</div>
-            </div>`;
-        leaderboardDiv.appendChild(card);
-    });
+// ── Leaderboard ──────────────────────────────────────────────────────────────
+onValue(buyersRef, async (snapshot) => {
+  const data = snapshot.val();
+  if (!data) return;
+
+  const users = Object.values(data)
+    .sort((a, b) => b.totalSpent - a.totalSpent)
+    .slice(0, 50);
+
+  document.getElementById("donors-count").textContent = users.length;
+
+  const list = document.getElementById("leaderboard-list");
+  list.innerHTML = "";
+
+  for (let i = 0; i < users.length; i++) {
+    const u = users[i];
+    const card = await buildCard(u.userId, u.username, `${u.totalSpent.toLocaleString()} R$ total`, i + 1);
+    list.appendChild(card);
+  }
 });
 
-// Goal
-onValue(statsRef,(snapshot)=>{
-    const data=snapshot.val();
-    if(!data) return;
-    const total=data.totalRaised||0;
-    const goal=data.goal||1000000;
-    const percent=Math.min((total/goal)*100,100);
-    document.getElementById("progress-fill").style.width=percent+"%";
-    document.getElementById("goal-text").textContent=`Total Raised: ${total} / ${goal} Robux`;
+// ── Stats / Goal ─────────────────────────────────────────────────────────────
+onValue(statsRef, (snapshot) => {
+  const data = snapshot.val();
+  if (!data) return;
+
+  const total   = data.totalRaised || 0;
+  const goal    = data.goal || 1000000;
+  const percent = Math.min((total / goal) * 100, 100);
+
+  document.getElementById("progress-fill").style.width  = percent + "%";
+  document.getElementById("progress-pct").textContent   = percent.toFixed(1) + "%";
+  document.getElementById("goal-text").textContent      = `${total.toLocaleString()} / ${goal.toLocaleString()} R$`;
+  document.getElementById("total-raised-header").textContent = total.toLocaleString() + " R$";
 });
 
-// Donation notifications
-function createDonationNotification(d){
-    const container=document.getElementById("donation-notifications");
-    const notif=document.createElement("div");
-    notif.className="donation-notif";
-    notif.innerHTML=`
-        <img class="avatar" src="${getAvatar(d.userId)}">
-        <div class="text">
-            <strong>${d.username}</strong> donated <span class="price">${d.price} Robux</span>!
-        </div>`;
-    container.appendChild(notif);
-    // Animate in
-    setTimeout(()=>notif.classList.add("show"),50);
-    // Remove after 4s
-    setTimeout(()=>{
-        notif.classList.remove("show");
-        setTimeout(()=>container.removeChild(notif),500);
-    },4000);
+// ── Donation alert ───────────────────────────────────────────────────────────
+function createDonationAlert(d) {
+  const container = document.getElementById("donation-notifications");
+  const notif = document.createElement("div");
+  notif.className = "donation-notif";
+  notif.innerHTML = `
+    <div class="notif-avatar-wrap">
+      <img class="notif-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+    </div>
+    <div class="notif-text">
+      <div class="notif-name">${d.username}</div>
+      <div class="notif-amount">donated <span class="notif-price">${d.price.toLocaleString()} R$</span></div>
+    </div>
+    <div class="notif-close" onclick="this.parentElement.remove()">✕</div>`;
+
+  getAvatar(d.userId).then(url => {
+    const img = notif.querySelector(".notif-avatar");
+    if (img) img.src = url;
+  });
+
+  container.appendChild(notif);
+  setTimeout(() => notif.classList.add("show"), 50);
+  setTimeout(() => {
+    notif.classList.remove("show");
+    setTimeout(() => notif.remove(), 500);
+  }, 5000);
+}
+
+// ── Time helper ──────────────────────────────────────────────────────────────
+function formatTime(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60)  return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
 }
 </script>
 </body>
