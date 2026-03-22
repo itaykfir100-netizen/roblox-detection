@@ -139,35 +139,69 @@ async function buildCard(userId, username, sub, rank = null) {
 }
 
 // ── Live Donations ───────────────────────────────────────────────────────────
-let seenTimestamps = null; // null = first load not done yet
+let seenTimestamps = null;
+let allDonations   = [];   // full sorted list from Firebase
+let shownCount     = 5;    // how many are currently visible
+
+async function renderDonations() {
+  const liveList = document.getElementById("live-list");
+
+  // Remove existing cards (keep the Show More button if present)
+  liveList.querySelectorAll(".card").forEach(c => c.remove());
+
+  const visible = allDonations.slice(0, shownCount);
+  for (const d of visible) {
+    const timeAgo = formatTime(d.timestamp);
+    const card = await buildCard(d.userId, d.username, `${d.price.toLocaleString()} R$ · ${timeAgo}`);
+    liveList.insertBefore(card, liveList.querySelector("#show-more-btn"));
+  }
+
+  // Show More button
+  let btn = document.getElementById("show-more-btn");
+  if (shownCount < allDonations.length) {
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.id        = "show-more-btn";
+      btn.className = "show-more-btn";
+      btn.textContent = "Show More ↓";
+      btn.addEventListener("click", async () => {
+        shownCount += 5;
+        await renderDonations();
+      });
+      liveList.appendChild(btn);
+    }
+    btn.textContent = `Show More ↓  (${allDonations.length - shownCount} left)`;
+  } else if (btn) {
+    btn.remove();
+  }
+}
 
 onValue(donationsRef, async (snapshot) => {
   const data = snapshot.val();
   if (!data) return;
 
-  const donations = Object.values(data)
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 5);
+  const sorted = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
 
-  // On first load: record existing timestamps silently (no notifications)
+  // First load — record all silently, no alerts
   if (seenTimestamps === null) {
-    seenTimestamps = new Set(donations.map(d => d.timestamp));
+    seenTimestamps = new Set(sorted.map(d => d.timestamp));
+    allDonations   = sorted;
+    await renderDonations();
+    return;
   }
 
-  const liveList = document.getElementById("live-list");
-  liveList.innerHTML = "";
-
-  for (const d of donations) {
-    const timeAgo = formatTime(d.timestamp);
-    const card = await buildCard(d.userId, d.username, `${d.price.toLocaleString()} R$ · ${timeAgo}`);
-    liveList.appendChild(card);
-
-    // Only alert for genuinely new donations
+  // New donations since last update
+  for (const d of sorted) {
     if (!seenTimestamps.has(d.timestamp)) {
       seenTimestamps.add(d.timestamp);
       createDonationAlert(d);
+      // bump shownCount so new donation is always visible at top
+      shownCount = Math.max(shownCount, 5);
     }
   }
+
+  allDonations = sorted;
+  await renderDonations();
 });
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
